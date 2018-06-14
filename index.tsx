@@ -5,7 +5,7 @@
 
   const {
     default: Solver
-  } = await import('./app/solvers/index.js');
+  } = await import('./app/solvers');
 
   ReactDOM.render(
     <Solver />,
