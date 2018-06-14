@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "webworker",
+      "esnext",
+      "dom"
+    ],
+    "strict": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "esnext",
+    "jsx": "react",
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

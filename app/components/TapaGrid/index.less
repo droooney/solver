@@ -1,0 +1,98 @@
+.tapa-grid {
+  display: inline-block;
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+
+  .tapa-row {
+    display: flex;
+    height: 30px;
+
+    .tapa-cell {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border-right: 1px solid black;
+      border-bottom: 1px solid black;
+
+      &.value-no {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &::before {
+          content: "\25CF";
+          font-size: 12px;
+        }
+      }
+
+      &.value-yes {
+        background: #080;
+      }
+
+      &.instruction {
+        &.single {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+        }
+
+        &.double,
+        &.triple,
+        &.quadruple {
+          position: relative;
+
+          > * {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50%;
+            height: 50%;
+            font-size: 18px;
+          }
+
+          > :first-child {
+            top: 0;
+            left: 0;
+          }
+        }
+
+        &.double,
+        &.quadruple {
+          > :last-child {
+            bottom: 0;
+            right: 0;
+          }
+        }
+
+        &.triple,
+        &.quadruple {
+          > * {
+            font-size: 14px;
+          }
+
+          > :nth-child(2) {
+            top: 0;
+            right: 0;
+          }
+        }
+
+        &.triple {
+          > :last-child {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+          }
+        }
+
+        &.quadruple {
+          :nth-child(3) {
+            bottom: 0;
+            left: 0;
+          }
+        }
+      }
+    }
+  }
+}
