@@ -4,8 +4,19 @@ import TapaGrid from '../components/TapaGrid';
 
 import '../../index.less';
 
+const VALUES = [true, false];
+
 interface State {
   field: Tapa.Cell[][] | null;
+}
+
+interface CheckFieldOptions {
+  allRelevantInstructionCells: Tapa.InstructionCell[];
+  allFilledCells: Tapa.Cell[];
+  allDotCells: Tapa.Cell[];
+  areThereEmptyCells: boolean;
+  checkSquares: boolean;
+  checkSequence: boolean;
 }
 
 export default class TapaSolver extends React.Component<{}, State> {
@@ -25,12 +36,15 @@ export default class TapaSolver extends React.Component<{}, State> {
     this.setNeighbors();
 
     const field = this.state.field!;
-    const allRelevantInstructionCells = field
+    const allInstructionCells = field
       .reduce<Tapa.InstructionCell[]>((cells, row) => [
         ...cells,
         ...row.filter(this.isInstructionCell)
       ], [])
       .filter((cell) => !cell.done);
+    const instructionEmptyCellsMap = new Map(
+      allInstructionCells.map((cell) => [cell, [cell, ...cell.instructionNeighbors]] as [Tapa.InstructionCell, Tapa.Cell[]])
+    );
     const fillGroup = (group: Tapa.Cell[], value: boolean) => {
       group.forEach((cell) => {
         if (this.isEmptyCell(cell)) {
@@ -50,94 +64,86 @@ export default class TapaSolver extends React.Component<{}, State> {
     while (changed) {
       changed = false;
 
-      allRelevantInstructionCells.forEach((cell) => {
-        const value = cell.value[0];
+      allInstructionCells.forEach((cell) => {
+        const oldInstructionEmptyCells = instructionEmptyCellsMap.get(cell)!;
 
-        if (cell.instructionNeighbors.every(negate(this.isEmptyCell))) {
+        if (!oldInstructionEmptyCells.length) {
+          return;
+        }
+
+        const newInstructionEmptyCells = cell.instructionNeighbors.filter(this.isEmptyCell);
+
+        if (!newInstructionEmptyCells.length) {
           cell.done = true;
 
+          instructionEmptyCellsMap.set(cell, newInstructionEmptyCells);
+
           return;
         }
 
-        if (cell.value.length > 1) {
+        if (oldInstructionEmptyCells.length === newInstructionEmptyCells.length) {
           return;
         }
 
-        const potentialFilledGroups = this.getPotentialFilledGroups(cell);
+        const value = cell.value[0];
 
-        // full circle or no empty cells, nothing we can do
         if (
-          !potentialFilledGroups.length
-          || (
-            potentialFilledGroups.length === 1
-            && potentialFilledGroups[0].length === 8
-            && value
+          newInstructionEmptyCells.length === 8
+          && (
+            cell.value.length !== 1
+            || (value > 0 && value < 8)
           )
         ) {
           return;
         }
 
-        potentialFilledGroups.forEach((group) => {
-          if (group.length < value) {
-            fillGroup(group, false);
-          }
-        });
+        const variations: boolean[][] = [];
+        const values: boolean[] = [];
+        const count = newInstructionEmptyCells.length;
 
-        const groupWithFilled = potentialFilledGroups.find((group) => (
-          group.some(this.isFilledCell)
-        ));
+        const traverse = (ix: number): void => {
+          VALUES.forEach((value) => {
+            values[ix] = value;
 
-        if (groupWithFilled) {
-          potentialFilledGroups.forEach((group) => {
-            if (group !== groupWithFilled) {
-              fillGroup(group, false);
-            }
-          });
-
-          if (value === '?' || groupWithFilled.length < value) {
-            return;
-          }
-
-          let firstFilledIndex = -1;
-          let lastFilledIndex = -1;
-
-          groupWithFilled.forEach((cell, ix) => {
-            if (this.isFilledCell(cell)) {
-              if (firstFilledIndex === -1) {
-                firstFilledIndex = ix;
-              }
-
-              lastFilledIndex = ix;
-            }
-          });
-
-          fillGroup([
-            ...groupWithFilled.slice(firstFilledIndex + 1, value),
-            ...groupWithFilled.slice(groupWithFilled.length - value, firstFilledIndex)
-          ], true);
-
-          fillGroup([
-            ...groupWithFilled.slice(firstFilledIndex + value),
-            ...groupWithFilled.slice(0, Math.max(0, lastFilledIndex - value + 1))
-          ], false);
-        } else {
-          if (value === '?') {
-            return;
-          }
-
-          const group = potentialFilledGroups[0];
-
-          if ((potentialFilledGroups.length !== 1 && value) || group.length < value) {
-            return;
-          }
-
-          if (value) {
-            fillGroup(group.slice(group.length - value, value), true);
-          } else {
-            potentialFilledGroups.forEach((group) => {
-              fillGroup(group, false);
+            Object.assign(newInstructionEmptyCells[ix], {
+              type: Tapa.CellType.VALUE,
+              value
             });
-          }
+
+            if (ix === count - 1) {
+              if (
+                this.checkInstructionNeighborCells(cell)
+                && this.checkSequence(
+                  field.reduce((cells, row) => [
+                    ...cells,
+                    ...row.filter(this.isFilledCell)
+                  ], []),
+                  this.canBeFilled
+                )
+              ) {
+                variations.push([...values]);
+              }
+            } else {
+              traverse(ix + 1);
+            }
+          });
+        };
+
+        traverse(0);
+
+        if (variations.length) {
+          newInstructionEmptyCells.forEach((cell, ix) => {
+            Object.assign(cell, {
+              type: Tapa.CellType.EMPTY,
+              value: undefined
+            });
+
+            const firstValue = variations[0][ix];
+
+            if (variations.every((value) => value[ix] === firstValue)) {
+              fillGroup([cell], firstValue);
+            }
+          });
         }
       });
 
@@ -168,8 +174,7 @@ export default class TapaSolver extends React.Component<{}, State> {
                 ...cells,
                 ...row.filter(this.isFilledCell)
               ], []),
-              this.canBeFilled,
-              cell.x === 1 && cell.y === 3
+              this.canBeFilled
             );
 
             Object.assign(cell, {
@@ -189,6 +194,12 @@ export default class TapaSolver extends React.Component<{}, State> {
 
     this.setNeighbors();
 
+    const allRelevantInstructionCells = field
+      .reduce<Tapa.InstructionCell[]>((cells, row) => [
+        ...cells,
+        ...row.filter(this.isInstructionCell)
+      ], [])
+      .filter((cell) => !cell.done);
     const allEmptyCells = field.reduce((cells, row) => [
       ...cells,
       ...row.filter(this.isEmptyCell)
@@ -203,15 +214,24 @@ export default class TapaSolver extends React.Component<{}, State> {
     ], []);
     let iterations = 0;
 
-    const checkThisField = (areThereEmptyCells: boolean): boolean => (
-      this.checkField(allRelevantInstructionCells, allFilledCells, allDotCells, areThereEmptyCells)
+    const checkThisField = <K extends keyof CheckFieldOptions>(options: Pick<CheckFieldOptions, K>) => (
+      this.checkField({
+        allRelevantInstructionCells,
+        allFilledCells,
+        allDotCells,
+        areThereEmptyCells: true,
+        checkSquares: true,
+        checkSequence: true,
+        // @ts-ignore
+        ...options
+      })
     );
 
     const traverse = (ix: number): boolean => {
       const cell = allEmptyCells[ix];
       const isLastEmptyCell = ix === allEmptyCells.length - 1;
 
-      for (const value of [true, false]) {
+      for (const value of VALUES) {
         iterations++;
 
         Object.assign(cell, {
@@ -222,11 +242,19 @@ export default class TapaSolver extends React.Component<{}, State> {
         (value ? allFilledCells : allDotCells).push(cell);
 
         if (isLastEmptyCell) {
-          if (checkThisField(!isLastEmptyCell)) {
+          if (checkThisField({
+            areThereEmptyCells: !isLastEmptyCell,
+            checkSquares: value,
+            checkSequence: !value
+          })) {
             return true;
           }
         } else {
-          if (!checkThisField(!isLastEmptyCell)) {
+          if (!checkThisField({
+            areThereEmptyCells: !isLastEmptyCell,
+            checkSquares: value,
+            checkSequence: !value
+          })) {
             (value ? allFilledCells : allDotCells).pop();
 
             continue;
@@ -272,7 +300,10 @@ export default class TapaSolver extends React.Component<{}, State> {
       field: field!.map((row, y) => (
         row.map((cell, x) => {
           if (this.isInstructionCell(cell)) {
-            return cell;
+            return {
+              ...cell,
+              done: false
+            };
           }
 
           return {
@@ -315,8 +346,8 @@ export default class TapaSolver extends React.Component<{}, State> {
     this.height = size;
 
     this.setState({
-      field: new Array<number>(size).fill(0).map((y) => (
-        new Array<number>(size).fill(0).map((x) => ({
+      field: [...size].map((y) => (
+        [...size].map((x) => ({
           x,
           y,
           type: Tapa.CellType.EMPTY
@@ -436,15 +467,20 @@ export default class TapaSolver extends React.Component<{}, State> {
     });
   }
 
-  checkField(
-    allRelevantInstructionCells: Tapa.InstructionCell[],
-    allFilledCells: Tapa.Cell[],
-    allDotCells: Tapa.Cell[],
-    areThereEmptyCells: boolean
-  ): boolean {
+  checkField(options: CheckFieldOptions): boolean {
+    const {
+      allRelevantInstructionCells,
+      allFilledCells,
+      allDotCells,
+      areThereEmptyCells,
+      checkSquares,
+      checkSequence
+    } = options;
+
     // no 2x2 filled square
     if (
-      !allFilledCells.every(({ x, y, canFormSquare, squareNeighbors }) => {
+      checkSquares
+      && !allFilledCells.every(({ canFormSquare, squareNeighbors }) => {
         if (!canFormSquare) {
           return true;
         }
@@ -493,14 +529,14 @@ export default class TapaSolver extends React.Component<{}, State> {
       return true;
     }
 
-    if (!this.checkSequence(allFilledCells, this.isFilledCell)) {
+    if (checkSequence && !this.checkSequence(allFilledCells, this.isFilledCell)) {
       return false;
     }
 
     return allRelevantInstructionCells.every(this.checkInstructionNeighborCells);
   }
 
-  checkSequence(allFilledCells: Tapa.Cell[], checker: (cell: Tapa.Cell) => boolean, log: boolean = false): boolean {
+  checkSequence(allFilledCells: Tapa.Cell[], checker: (cell: Tapa.Cell) => boolean): boolean {
     if (!allFilledCells.length) {
       return true;
     }
@@ -606,24 +642,6 @@ export default class TapaSolver extends React.Component<{}, State> {
     // so we have to be left with only "?"s
     return instructionValues.every((value) => value === '?');
   };
-
-  getPotentialFilledGroups(cell: Tapa.InstructionCell): Tapa.Cell[][] {
-    this.changeInstructionNeighborsOrder(cell, negate(this.canBeFilled));
-
-    return cell.instructionNeighbors
-      .reduce<Tapa.Cell[][]>((groups, cell) => {
-        const lastValue = groups[groups.length - 1];
-
-        if (this.canBeFilled(cell)) {
-          groups[groups.length - 1].push(cell);
-        } else if (lastValue.length) {
-          groups.push([]);
-        }
-
-        return groups;
-      }, [[]])
-      .filter((group) => group.length);
-  }
 
   isFilledCell = (cell: Tapa.Cell): boolean => {
     return (
