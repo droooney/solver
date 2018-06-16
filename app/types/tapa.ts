@@ -1,3 +1,8 @@
+export enum Variation {
+  CLASSIC = 'CLASSIC TAPA',
+  FOUR_ME = 'FOUR-ME TAPA'
+}
+
 export enum CellType {
   EMPTY = 'EMPTY',
   VALUE = 'VALUE',
@@ -13,54 +18,46 @@ export type InstructionCellValue = (
   | [InstructionCellSingleValue, InstructionCellSingleValue, InstructionCellSingleValue, InstructionCellSingleValue]
 )
 
-export interface StartBaseCell {
-  type: CellType;
-  value?: boolean | InstructionCellValue;
-}
-
-export interface StartEmptyCell extends StartBaseCell {
-  type: CellType.EMPTY;
-  value?: undefined;
-}
-
-export interface StartFilledCell extends StartBaseCell {
-  type: CellType.VALUE;
-  value: boolean;
-}
-
-export interface StartInstructionCell extends StartBaseCell {
-  type: CellType.INSTRUCTION;
-  value: InstructionCellValue;
-}
-
-export type StartCell = StartEmptyCell | StartFilledCell | StartInstructionCell
-
-export interface BaseCell extends StartBaseCell {
+export interface BaseCell {
   x: number;
   y: number;
+  type: CellType;
+  value?: boolean | InstructionCellValue;
 }
 
 export interface EmptyCell extends BaseCell {
   type: CellType.EMPTY;
   neighbors: Cell[];
-  squareNeighbors: Cell[];
+  squareCells: Cell[];
+  horizontalLineCells: Cell[];
+  verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormHorizontalLine: boolean;
+  canFormVerticalLine: boolean;
 }
 
 export interface FilledCell extends BaseCell {
   type: CellType.VALUE;
   value: boolean;
   neighbors: Cell[];
-  squareNeighbors: Cell[];
+  squareCells: Cell[];
+  horizontalLineCells: Cell[];
+  verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormHorizontalLine: boolean;
+  canFormVerticalLine: boolean;
 }
 
 export interface InstructionCell extends BaseCell {
   type: CellType.INSTRUCTION;
   value: InstructionCellValue;
   neighbors: Cell[];
-  squareNeighbors: Cell[];
+  squareCells: Cell[];
+  horizontalLineCells: Cell[];
+  verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormHorizontalLine: boolean;
+  canFormVerticalLine: boolean;
   instructionNeighbors: Cell[];
   done: boolean;
 }
