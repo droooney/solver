@@ -1,12 +1,13 @@
 export enum Variation {
   CLASSIC = 'CLASSIC TAPA',
-  FOUR_ME = 'FOUR-ME TAPA'
+  FOUR_ME = 'FOUR-ME TAPA',
+  EQUAL_TAPA = 'EQUAL TAPA'
 }
 
 export enum CellType {
   EMPTY = 'EMPTY',
   VALUE = 'VALUE',
-  INSTRUCTION = 'INSTRUCTION'
+  INSTRUCTION = 'INSTRUCTION',
 }
 
 export type InstructionCellSingleValue = number | '?'

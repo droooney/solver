@@ -11,7 +11,9 @@ type InstructionCell = Tapa.InstructionCell
 const CellType = Tapa.CellType;
 const Variation = Tapa.Variation;
 
-const VALUES = [true, false];
+const ALL_VALUES = [true, false];
+const TRUE_VALUES = [true];
+const FALSE_VALUES = [false];
 
 interface State {
   field: Cell[][] | null;
@@ -25,6 +27,10 @@ interface CheckFieldOptions {
   checkSquares: boolean;
   checkLines: boolean;
   checkSequence: boolean;
+}
+
+interface TraverseOptions {
+  values: boolean[];
 }
 
 export default class TapaSolver extends React.Component<{}, State> {
@@ -124,7 +130,7 @@ export default class TapaSolver extends React.Component<{}, State> {
         const count = newInstructionEmptyCells.length;
 
         const traverse = (ix: number): void => {
-          VALUES.forEach((value) => {
+          ALL_VALUES.forEach((value) => {
             values[ix] = value;
 
             Object.assign(newInstructionEmptyCells[ix], {
@@ -288,6 +294,8 @@ export default class TapaSolver extends React.Component<{}, State> {
       ...cells,
       ...row.filter(this.isDotCell)
     ], []);
+    const equalTapaCount = Math.round((this.width * this.height - allInstructionCells.length) / 2);
+    const isEqualTapa = this.variation === Variation.EQUAL_TAPA;
     let iterations = 0;
 
     const checkThisField = <K extends keyof CheckFieldOptions>(options: Pick<CheckFieldOptions, K>) => (
@@ -304,11 +312,11 @@ export default class TapaSolver extends React.Component<{}, State> {
       })
     );
 
-    const traverse = (ix: number): boolean => {
+    const traverse = (ix: number, options: TraverseOptions = { values: ALL_VALUES }): boolean => {
       const cell = allEmptyCells[ix];
       const isLastEmptyCell = ix === allEmptyCells.length - 1;
 
-      for (const value of VALUES) {
+      for (const value of options.values) {
         iterations++;
 
         Object.assign(cell, {
@@ -339,7 +347,19 @@ export default class TapaSolver extends React.Component<{}, State> {
             continue;
           }
 
-          if (traverse(ix + 1)) {
+          let traverseOptions: TraverseOptions | undefined;
+
+          if (isEqualTapa) {
+            traverseOptions = {
+              values: allFilledCells.length >= equalTapaCount
+                ? FALSE_VALUES
+                : allDotCells.length >= equalTapaCount
+                  ? TRUE_VALUES
+                  : ALL_VALUES
+            };
+          }
+
+          if (traverse(ix + 1, traverseOptions)) {
             return true;
           }
         }
