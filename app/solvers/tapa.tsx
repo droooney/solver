@@ -1,5 +1,5 @@
 import { Tapa } from '../types';
-import { negate } from '../helpers';
+import { negate, timeout } from '../helpers';
 import TapaGrid from '../components/TapaGrid';
 
 import '../../index.less';
@@ -39,6 +39,7 @@ interface CheckFieldOptions {
   allHorizontalFilled(cells: Cell): boolean;
   allVerticalFilled(cells: Cell): boolean;
   formsSquare(cells: Cell): boolean;
+  formsWhiteSquare(cells: Cell): boolean;
   formsHorizontalLine(cells: Cell): boolean;
   formsVerticalLine(cells: Cell): boolean;
 }
@@ -58,7 +59,7 @@ export default class TapaSolver extends React.Component<{}, State> {
   width = 0;
   height = 0;
 
-  solve = () => {
+  solve = async () => {
     console.log('start');
     console.time('solution took');
 
@@ -119,10 +120,10 @@ export default class TapaSolver extends React.Component<{}, State> {
 
         const newInstructionEmptyCells = cell.instructionNeighbors.filter(this.isEmptyCell);
 
+        instructionEmptyCellsMap.set(cell, newInstructionEmptyCells);
+
         if (!newInstructionEmptyCells.length) {
           cell.done = true;
-
-          instructionEmptyCellsMap.set(cell, newInstructionEmptyCells);
 
           return true;
         }
@@ -137,6 +138,7 @@ export default class TapaSolver extends React.Component<{}, State> {
           newInstructionEmptyCells.length === 8
           && (
             cell.value.length !== 1
+            || value === '?'
             || (value > 0 && value < 8)
           )
         ) {
@@ -221,6 +223,17 @@ export default class TapaSolver extends React.Component<{}, State> {
             }
           }
 
+          if (
+            cell.canFormWhiteSquare
+            && cell.whiteSquareCells.filter(this.isFilledCell).length === cell.whiteSquareCells.length - 1
+          ) {
+            const emptyCell = cell.whiteSquareCells.find(this.isEmptyCell);
+
+            if (emptyCell) {
+              fillGroup([emptyCell], true);
+            }
+          }
+
           if (isFourMeTapa) {
             if (
               cell.canFormHorizontalLine
@@ -277,12 +290,13 @@ export default class TapaSolver extends React.Component<{}, State> {
     console.log('changed count', changedCells.length);
 
     this.setNeighbors();
-    /*
     this.setState({
       field: [...field]
     });
-    return;
-    */
+
+    await timeout(1);
+
+    // return;
 
     const getImportanceCoeff = (cell: Cell): number => {
       return allRelevantInstructionCells.filter(({ instructionNeighbors }) => (
@@ -313,6 +327,13 @@ export default class TapaSolver extends React.Component<{}, State> {
       }
 
       return squareCells.every(filledCellsInclude);
+    };
+    const formsWhiteSquare = ({ canFormWhiteSquare, whiteSquareCells }: Cell): boolean => {
+      if (!canFormWhiteSquare) {
+        return false;
+      }
+
+      return whiteSquareCells.every(dotCellsInclude);
     };
     const formsHorizontalLine = ({ canFormHorizontalLine, horizontalLineCells }: Cell): boolean => {
       if (!canFormHorizontalLine) {
@@ -393,6 +414,7 @@ export default class TapaSolver extends React.Component<{}, State> {
         allHorizontalFilled,
         allVerticalFilled,
         formsSquare,
+        formsWhiteSquare,
         formsHorizontalLine,
         formsVerticalLine,
         // @ts-ignore
@@ -579,6 +601,7 @@ export default class TapaSolver extends React.Component<{}, State> {
         Object.assign(cell, {
           neighbors: [],
           squareCells: [cell],
+          whiteSquareCells: [cell],
           horizontalLineCells: [cell],
           verticalLineCells: [cell],
           instructionNeighbors: []
@@ -586,15 +609,18 @@ export default class TapaSolver extends React.Component<{}, State> {
 
         if (x !== this.width - 1) {
           cell.squareCells.push(row[x + 1]);
+          cell.whiteSquareCells.push(row[x + 1]);
           cell.neighbors.push(row[x + 1]);
         }
 
         if (y !== this.height - 1) {
           cell.squareCells.push(field[y + 1][x]);
+          cell.whiteSquareCells.push(field[y + 1][x]);
           cell.neighbors.push(field[y + 1][x]);
 
           if (x !== this.width - 1) {
             cell.squareCells.push(field[y + 1][x + 1]);
+            cell.whiteSquareCells.push(field[y + 1][x + 1]);
           }
         }
 
@@ -613,6 +639,11 @@ export default class TapaSolver extends React.Component<{}, State> {
           && cell.squareCells.every(this.canBeFilled)
         );
 
+        cell.canFormWhiteSquare = (
+          cell.whiteSquareCells.length === 4
+          && cell.whiteSquareCells.every(negate(this.isFilledCell))
+        );
+
         cell.canFormHorizontalLine = (
           cell.horizontalLineCells.length === 4
           && cell.horizontalLineCells.every(this.canBeFilled)
@@ -622,6 +653,8 @@ export default class TapaSolver extends React.Component<{}, State> {
           cell.verticalLineCells.length === 4
           && cell.verticalLineCells.every(this.canBeFilled)
         );
+
+        cell.whiteSquareCells = cell.whiteSquareCells.filter(negate(this.isInstructionCell));
 
         if (x !== 0) {
           cell.neighbors.push(field[y][x - 1]);
@@ -710,6 +743,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       allHorizontalFilled,
       allVerticalFilled,
       formsSquare,
+      formsWhiteSquare,
       formsHorizontalLine,
       formsVerticalLine,
     } = options;
@@ -730,7 +764,11 @@ export default class TapaSolver extends React.Component<{}, State> {
     if (
       isNoSquareTapa
       && checkWhiteSquares
-      && allCanFormWhiteSquareCells.some(allSquareWhite)
+      && (
+        allDotCells.length < allCanFormWhiteSquareCells.length
+          ? allDotCells.some(formsWhiteSquare)
+          : allCanFormWhiteSquareCells.some(allSquareWhite)
+      )
     ) {
       return false;
     }
