@@ -23,10 +23,25 @@ interface CheckFieldOptions {
   allRelevantInstructionCells: InstructionCell[];
   allFilledCells: Cell[];
   allDotCells: Cell[];
+  allCanFormSquareCells: Cell[];
+  allCanFormWhiteSquareCells: Cell[];
+  allCanFormHorizontalLineCells: Cell[];
+  allCanFormVerticalLineCells: Cell[];
   areThereEmptyCells: boolean;
   checkSquares: boolean;
+  checkWhiteSquares: boolean;
   checkLines: boolean;
   checkSequence: boolean;
+  isFourMeTapa: boolean;
+  isNoSquareTapa: boolean;
+  allSquareFilled(cells: Cell): boolean;
+  allSquareWhite(cells: Cell): boolean;
+  allHorizontalFilled(cells: Cell): boolean;
+  allVerticalFilled(cells: Cell): boolean;
+}
+
+interface TraverseOptions {
+  values: boolean[];
 }
 
 interface TraverseOptions {
@@ -51,6 +66,9 @@ export default class TapaSolver extends React.Component<{}, State> {
     this.emptyPercent = this.width * this.height * 0.25;
     this.setNeighbors();
 
+    const isEqualTapa = this.variation === Variation.EQUAL;
+    const isFourMeTapa = this.variation === Variation.FOUR_ME;
+    const isNoSquareTapa = this.variation === Variation.NO_SQUARE;
     const field = this.state.field!;
     const allInstructionCells = field
       .reduce<InstructionCell[]>((cells, row) => [
@@ -203,7 +221,7 @@ export default class TapaSolver extends React.Component<{}, State> {
             }
           }
 
-          if (this.variation === Variation.FOUR_ME) {
+          if (isFourMeTapa) {
             if (
               cell.canFormHorizontalLine
               && cell.horizontalLineCells.filter(this.isFilledCell).length === 3
@@ -264,10 +282,28 @@ export default class TapaSolver extends React.Component<{}, State> {
     return;
     */
 
-    const getImportanceCoeff = (cell: Tapa.Cell): number => {
+    const getImportanceCoeff = (cell: Cell): number => {
       return allRelevantInstructionCells.filter(({ instructionNeighbors }) => (
         instructionNeighbors.includes(cell)
       )).length;
+    };
+    const filledCellsInclude = (cell: Cell): boolean => {
+      return allFilledCells.includes(cell);
+    };
+    const dotCellsInclude = (cell: Cell): boolean => {
+      return allDotCells.includes(cell);
+    };
+    const allSquareFilled = ({ squareCells }: Cell): boolean => {
+      return squareCells.every(filledCellsInclude);
+    };
+    const allSquareWhite = ({ squareCells }: Cell): boolean => {
+      return squareCells.every(dotCellsInclude);
+    };
+    const allHorizontalFilled = ({ horizontalLineCells }: Cell): boolean => {
+      return horizontalLineCells.every(filledCellsInclude);
+    };
+    const allVerticalFilled = ({ verticalLineCells }: Cell): boolean => {
+      return verticalLineCells.every(filledCellsInclude);
     };
     const allRelevantInstructionCells = field
       .reduce<InstructionCell[]>((cells, row) => [
@@ -294,8 +330,23 @@ export default class TapaSolver extends React.Component<{}, State> {
       ...cells,
       ...row.filter(this.isDotCell)
     ], []);
+    const allCanFormSquareCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter(({ canFormSquare }) => canFormSquare)
+    ], []);
+    const allCanFormWhiteSquareCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter(({ canFormWhiteSquare }) => canFormWhiteSquare)
+    ], []);
+    const allCanFormHorizontalLineCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter(({ canFormHorizontalLine }) => canFormHorizontalLine)
+    ], []);
+    const allCanFormVerticalLineCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter(({ canFormVerticalLine }) => canFormVerticalLine)
+    ], []);
     const equalTapaCount = Math.round((this.width * this.height - allInstructionCells.length) / 2);
-    const isEqualTapa = this.variation === Variation.EQUAL_TAPA;
     let iterations = 0;
 
     const checkThisField = <K extends keyof CheckFieldOptions>(options: Pick<CheckFieldOptions, K>) => (
@@ -303,10 +354,21 @@ export default class TapaSolver extends React.Component<{}, State> {
         allRelevantInstructionCells,
         allFilledCells,
         allDotCells,
+        allCanFormSquareCells,
+        allCanFormWhiteSquareCells,
+        allCanFormHorizontalLineCells,
+        allCanFormVerticalLineCells,
         areThereEmptyCells: true,
         checkSquares: true,
+        checkWhiteSquares: true,
         checkLines: true,
         checkSequence: true,
+        isFourMeTapa,
+        isNoSquareTapa,
+        allSquareFilled,
+        allSquareWhite,
+        allHorizontalFilled,
+        allVerticalFilled,
         // @ts-ignore
         ...options
       })
@@ -606,75 +668,54 @@ export default class TapaSolver extends React.Component<{}, State> {
       allRelevantInstructionCells,
       allFilledCells,
       allDotCells,
+      allCanFormSquareCells,
+      allCanFormWhiteSquareCells,
+      allCanFormHorizontalLineCells,
+      allCanFormVerticalLineCells,
       areThereEmptyCells,
       checkSquares,
+      checkWhiteSquares,
       checkLines,
-      checkSequence
+      checkSequence,
+      isFourMeTapa,
+      isNoSquareTapa,
+      allSquareFilled,
+      allSquareWhite,
+      allHorizontalFilled,
+      allVerticalFilled,
     } = options;
 
     // no 2x2 filled square
     if (
       checkSquares
-      && !allFilledCells.every(({ canFormSquare, squareCells }) => {
-        if (!canFormSquare) {
-          return true;
-        }
+      && allCanFormSquareCells.some(allSquareFilled)
+    ) {
+      return false;
+    }
 
-        return squareCells.some((cell) => !allFilledCells.includes(cell));
-      })
+    // no 2x2 white square
+    if (
+      isNoSquareTapa
+      && checkWhiteSquares
+      && allCanFormWhiteSquareCells.some(allSquareWhite)
     ) {
       return false;
     }
 
     // no four-me line
     if (
-      this.variation === Variation.FOUR_ME
+      isFourMeTapa
       && checkLines
       && (
-        !allFilledCells.every(({ canFormHorizontalLine, horizontalLineCells }) => {
-          if (!canFormHorizontalLine) {
-            return true;
-          }
-
-          return horizontalLineCells.some((cell) => !allFilledCells.includes(cell));
-        })
-        || !allFilledCells.every(({ canFormVerticalLine, verticalLineCells }) => {
-          if (!canFormVerticalLine) {
-            return true;
-          }
-
-          return verticalLineCells.some((cell) => !allFilledCells.includes(cell));
-        })
+        allCanFormHorizontalLineCells.some(allHorizontalFilled)
+        || allCanFormVerticalLineCells.some(allVerticalFilled)
       )
     ) {
       return false;
     }
 
     if (areThereEmptyCells) {
-      if (
-        !allRelevantInstructionCells.every((cell) => {
-          if (cell.value.length > 1) {
-            // temporary
-
-            return true;
-          }
-
-          const minValue = cell.value[0] === '?'
-            ? 1
-            : cell.value[0];
-          const maxValue = cell.value[0] === '?'
-            ? cell.instructionNeighbors.length - 1
-            : cell.value[0];
-
-          if (
-            cell.instructionNeighbors.filter(this.canBeFilled).length < minValue
-          ) {
-            return false;
-          }
-
-          return cell.instructionNeighbors.filter(this.isFilledCell).length <= maxValue;
-        })
-      ) {
+      if (!allRelevantInstructionCells.every(this.checkInstructionNeighborCells)) {
         return false;
       }
 
@@ -692,7 +733,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       return false;
     }
 
-    return allRelevantInstructionCells.every(this.checkInstructionNeighborCells);
+    return allRelevantInstructionCells.every(this.checkInstructionFinalNeighborCells);
   }
 
   checkSequence(allFilledCells: Cell[], checker: (cell: Cell) => boolean): boolean {
@@ -728,7 +769,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     return !allFilledCellsCopy.length;
   }
 
-  changeInstructionNeighborsOrder(cell: InstructionCell, checker: (cell: Cell) => boolean): void {
+  changeInstructionNeighborsOrder = (cell: InstructionCell, checker: (cell: Cell) => boolean): void => {
     const { instructionNeighbors } = cell;
 
     // make neighbor cells start with filled cell and end with an empty cell
@@ -755,9 +796,32 @@ export default class TapaSolver extends React.Component<{}, State> {
         }
       }
     }
-  }
+  };
 
   checkInstructionNeighborCells = (cell: InstructionCell): boolean => {
+    if (cell.value.length > 1) {
+      // temporary
+
+      return true;
+    }
+
+    const minValue = cell.value[0] === '?'
+      ? 1
+      : cell.value[0];
+    const maxValue = cell.value[0] === '?'
+      ? cell.instructionNeighbors.length - 1
+      : cell.value[0];
+
+    if (
+      cell.instructionNeighbors.filter(this.canBeFilled).length < minValue
+    ) {
+      return false;
+    }
+
+    return cell.instructionNeighbors.filter(this.isFilledCell).length <= maxValue;
+  };
+
+  checkInstructionFinalNeighborCells = (cell: InstructionCell): boolean => {
     const { instructionNeighbors } = cell;
 
     if (cell.value.length === 1 && cell.value[0] === 0) {

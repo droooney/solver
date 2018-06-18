@@ -1,7 +1,8 @@
 export enum Variation {
   CLASSIC = 'CLASSIC TAPA',
   FOUR_ME = 'FOUR-ME TAPA',
-  EQUAL_TAPA = 'EQUAL TAPA'
+  EQUAL = 'EQUAL TAPA',
+  NO_SQUARE = 'NO-SQUARE TAPA',
 }
 
 export enum CellType {
@@ -30,9 +31,11 @@ export interface EmptyCell extends BaseCell {
   type: CellType.EMPTY;
   neighbors: Cell[];
   squareCells: Cell[];
+  whiteSquareCells: Cell[];
   horizontalLineCells: Cell[];
   verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormWhiteSquare: boolean;
   canFormHorizontalLine: boolean;
   canFormVerticalLine: boolean;
 }
@@ -42,9 +45,11 @@ export interface FilledCell extends BaseCell {
   value: boolean;
   neighbors: Cell[];
   squareCells: Cell[];
+  whiteSquareCells: Cell[];
   horizontalLineCells: Cell[];
   verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormWhiteSquare: boolean;
   canFormHorizontalLine: boolean;
   canFormVerticalLine: boolean;
 }
@@ -54,9 +59,11 @@ export interface InstructionCell extends BaseCell {
   value: InstructionCellValue;
   neighbors: Cell[];
   squareCells: Cell[];
+  whiteSquareCells: Cell[];
   horizontalLineCells: Cell[];
   verticalLineCells: Cell[];
   canFormSquare: boolean;
+  canFormWhiteSquare: boolean;
   canFormHorizontalLine: boolean;
   canFormVerticalLine: boolean;
   instructionNeighbors: Cell[];
