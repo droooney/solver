@@ -158,7 +158,7 @@ export default class TapaSolver extends React.Component<{}, State> {
 
             if (ix === count - 1) {
               if (
-                this.checkInstructionNeighborCells(cell)
+                this.checkInstructionFinalNeighborCells(cell)
                 && this.checkSequence(
                   field.reduce((cells, row) => [
                     ...cells,
