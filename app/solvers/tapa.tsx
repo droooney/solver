@@ -38,10 +38,9 @@ interface CheckFieldOptions {
   allSquareWhite(cells: Cell): boolean;
   allHorizontalFilled(cells: Cell): boolean;
   allVerticalFilled(cells: Cell): boolean;
-}
-
-interface TraverseOptions {
-  values: boolean[];
+  formsSquare(cells: Cell): boolean;
+  formsHorizontalLine(cells: Cell): boolean;
+  formsVerticalLine(cells: Cell): boolean;
 }
 
 interface TraverseOptions {
@@ -77,7 +76,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       ], [])
       .filter((cell) => !cell.done);
     const instructionEmptyCellsMap = new Map(
-      allInstructionCells.map((cell) => [cell, [cell, ...cell.instructionNeighbors]] as [InstructionCell, Cell[]])
+      allInstructionCells.map((cell) => [cell, []] as [InstructionCell, Cell[]])
     );
     const fillGroup = (group: Cell[], value: boolean) => {
       group.forEach((cell) => {
@@ -105,6 +104,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       });
     };
     let changed = true;
+    let firstIteration = true;
     const changedCells: Cell[] = [];
 
     while (changed) {
@@ -113,7 +113,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       const valid = allInstructionCells.every((cell) => {
         const oldInstructionEmptyCells = instructionEmptyCellsMap.get(cell)!;
 
-        if (!oldInstructionEmptyCells.length) {
+        if (!oldInstructionEmptyCells.length && !firstIteration) {
           return true;
         }
 
@@ -270,6 +270,8 @@ export default class TapaSolver extends React.Component<{}, State> {
           }
         });
       });
+
+      firstIteration = false;
     }
 
     console.log('changed count', changedCells.length);
@@ -303,6 +305,27 @@ export default class TapaSolver extends React.Component<{}, State> {
       return horizontalLineCells.every(filledCellsInclude);
     };
     const allVerticalFilled = ({ verticalLineCells }: Cell): boolean => {
+      return verticalLineCells.every(filledCellsInclude);
+    };
+    const formsSquare = ({ canFormSquare, squareCells }: Cell): boolean => {
+      if (!canFormSquare) {
+        return false;
+      }
+
+      return squareCells.every(filledCellsInclude);
+    };
+    const formsHorizontalLine = ({ canFormHorizontalLine, horizontalLineCells }: Cell): boolean => {
+      if (!canFormHorizontalLine) {
+        return false;
+      }
+
+      return horizontalLineCells.every(filledCellsInclude);
+    };
+    const formsVerticalLine = ({ canFormVerticalLine, verticalLineCells }: Cell): boolean => {
+      if (!canFormVerticalLine) {
+        return false;
+      }
+
       return verticalLineCells.every(filledCellsInclude);
     };
     const allRelevantInstructionCells = field
@@ -369,6 +392,9 @@ export default class TapaSolver extends React.Component<{}, State> {
         allSquareWhite,
         allHorizontalFilled,
         allVerticalFilled,
+        formsSquare,
+        formsHorizontalLine,
+        formsVerticalLine,
         // @ts-ignore
         ...options
       })
@@ -683,12 +709,19 @@ export default class TapaSolver extends React.Component<{}, State> {
       allSquareWhite,
       allHorizontalFilled,
       allVerticalFilled,
+      formsSquare,
+      formsHorizontalLine,
+      formsVerticalLine,
     } = options;
 
     // no 2x2 filled square
     if (
       checkSquares
-      && allCanFormSquareCells.some(allSquareFilled)
+      && (
+        allFilledCells.length < allCanFormSquareCells.length
+          ? allFilledCells.some(formsSquare)
+          : allCanFormSquareCells.some(allSquareFilled)
+      )
     ) {
       return false;
     }
@@ -706,10 +739,15 @@ export default class TapaSolver extends React.Component<{}, State> {
     if (
       isFourMeTapa
       && checkLines
-      && (
-        allCanFormHorizontalLineCells.some(allHorizontalFilled)
-        || allCanFormVerticalLineCells.some(allVerticalFilled)
-      )
+      && ((
+        allFilledCells.length < allCanFormHorizontalLineCells.length
+          ? allFilledCells.some(formsHorizontalLine)
+          : allCanFormHorizontalLineCells.some(allHorizontalFilled)
+      ) || (
+        allFilledCells.length < allCanFormVerticalLineCells.length
+          ? allFilledCells.some(formsVerticalLine)
+          : allCanFormVerticalLineCells.some(allVerticalFilled)
+      ))
     ) {
       return false;
     }
