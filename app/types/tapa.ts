@@ -3,6 +3,7 @@ export enum Variation {
   FOUR_ME = 'FOUR-ME TAPA',
   EQUAL = 'EQUAL TAPA',
   NO_SQUARE = 'NO-SQUARE TAPA',
+  ALIKE = 'TAP-ALIKE',
 }
 
 export enum CellType {
