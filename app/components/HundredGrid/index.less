@@ -1,0 +1,23 @@
+@hundred-cell-size: 50px;
+
+.hundred-grid {
+  display: inline-block;
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+
+  .hundred-row {
+    display: flex;
+    height: @hundred-cell-size;
+
+    .hundred-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: @hundred-cell-size;
+      height: @hundred-cell-size;
+      border-right: 1px solid black;
+      border-bottom: 1px solid black;
+      user-select: none;
+    }
+  }
+}

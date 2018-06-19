@@ -1,3 +1,5 @@
+@tapa-cell-size: 30px;
+
 .tapa-grid {
   display: inline-block;
   border-top: 1px solid black;
@@ -5,12 +7,12 @@
 
   .tapa-row {
     display: flex;
-    height: 30px;
+    height: @tapa-cell-size;
 
     .tapa-cell {
       display: inline-block;
-      width: 30px;
-      height: 30px;
+      width: @tapa-cell-size;
+      height: @tapa-cell-size;
       border-right: 1px solid black;
       border-bottom: 1px solid black;
       user-select: none;
