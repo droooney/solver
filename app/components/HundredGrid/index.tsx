@@ -7,7 +7,7 @@ interface Props {
   onFieldChange(field: Hundred.Cell[][]): void;
 }
 
-export default class TapaGrid extends React.Component<Props> {
+export default class HundredGrid extends React.Component<Props> {
   onCellClick(cell: Hundred.Cell) {
     const {
       field,
@@ -15,17 +15,17 @@ export default class TapaGrid extends React.Component<Props> {
     } = this.props;
     const value = prompt('Enter value', cell.value ? `${cell.value}` : '');
 
-    if (value === null) {
+    if (
+      value === null
+      || !Number.isInteger(+value)
+      || +value < 0
+      || +value > 9
+    ) {
       return;
     }
 
-    if (value) {
-      cell.type = Hundred.CellType.FILLED;
-      cell.value = +value;
-    } else {
-      cell.type = Hundred.CellType.EMPTY;
-      cell.value = undefined;
-    }
+    cell.value = +value;
+    cell.initialValue = +value;
 
     onFieldChange([...field]);
   }
@@ -36,9 +36,9 @@ export default class TapaGrid extends React.Component<Props> {
     } = this.props;
 
     return (
-      <div className="tapa-grid">
+      <div className="hundred-grid">
         {field.map((row, y) => (
-          <div key={y} className="tapa-row">
+          <div key={y} className="hundred-row">
             {row.map((cell, x) => (
               <div
                 key={x}
