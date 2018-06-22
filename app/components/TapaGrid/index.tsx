@@ -11,8 +11,11 @@ const CLASSES_MAP = {
   3: 'triple',
   4: 'quadruple'
 };
+const CELL_SIZE = 30;
 
 interface Props {
+  variation: Tapa.Variation;
+  separatorX: number;
   field: Tapa.Cell[][];
   onFieldChange(field: Tapa.Cell[][]): void;
 }
@@ -83,11 +86,26 @@ export default class TapaGrid extends React.Component<Props> {
 
   render(): JSX.Element {
     const {
+      variation,
+      separatorX,
       field
     } = this.props;
 
     return (
-      <div className="tapa-grid">
+      <div
+        className="tapa-grid"
+        style={{
+          '--cell-size': CELL_SIZE
+        } as React.CSSProperties}
+      >
+        {variation === Tapa.Variation.BALANCED && (
+          <div
+            className="separatorX"
+            style={{
+              left: separatorX * CELL_SIZE
+            }}
+          />
+        )}
         {field.map((row, y) => (
           <div key={y} className="tapa-row">
             {row.map((cell, x) => {

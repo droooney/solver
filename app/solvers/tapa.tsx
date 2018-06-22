@@ -27,13 +27,17 @@ interface CheckFieldOptions {
   allCanFormWhiteSquareCells: Cell[];
   allCanFormHorizontalLineCells: Cell[];
   allCanFormVerticalLineCells: Cell[];
+  leftEmptyCells: Cell[];
+  rightEmptyCells: Cell[];
+  leftFilledCount: number;
+  rightFilledCount: number;
   areThereEmptyCells: boolean;
   checkSquares: boolean;
   checkWhiteSquares: boolean;
   checkLines: boolean;
-  checkSequence: boolean;
   isFourMeTapa: boolean;
   isNoSquareTapa: boolean;
+  isBalancedTapa: boolean;
   allSquareFilled(cells: Cell): boolean;
   allSquareWhite(cells: Cell): boolean;
   allHorizontalFilled(cells: Cell): boolean;
@@ -54,9 +58,11 @@ export default class TapaSolver extends React.Component<{}, State> {
   };
   sizeSelect: HTMLSelectElement | null = null;
   variationSelect: HTMLSelectElement | null = null;
+  separatorXSelect: HTMLSelectElement | null = null;
   variation: Tapa.Variation = Variation.CLASSIC;
-  width = 0;
-  height = 0;
+  separatorX: number = 2;
+  width: number = 0;
+  height: number = 0;
 
   solve = async () => {
     console.log('start');
@@ -111,6 +117,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     const isFourMeTapa = this.variation === Variation.FOUR_ME;
     const isNoSquareTapa = this.variation === Variation.NO_SQUARE;
     const isTapAlike = this.variation === Variation.ALIKE;
+    const isBalancedTapa = this.variation === Variation.BALANCED;
     const field = this.state.field!;
     const allInstructionCells = field
       .reduce<InstructionCell[]>((cells, row) => [
@@ -417,6 +424,18 @@ export default class TapaSolver extends React.Component<{}, State> {
     const allCanFormWhiteSquareCells = getAllCanFormWhiteSquareCells();
     const allCanFormHorizontalLineCells = getAllCanFormHorizontalLineCells();
     const allCanFormVerticalLineCells = getAllCanFormVerticalLineCells();
+    const allLeftCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter((_cell, x) => x < Math.floor(this.separatorX))
+    ], []);
+    const allRightCells = field.reduce((cells, row) => [
+      ...cells,
+      ...row.filter((_cell, x) => x >= this.separatorX)
+    ], []);
+    const leftEmptyCells = allLeftCells.filter(this.isEmptyCell);
+    const rightEmptyCells = allRightCells.filter(this.isEmptyCell);
+    const leftFilledCount = allLeftCells.filter(this.isFilledCell).length;
+    const rightFilledCount = allRightCells.filter(this.isFilledCell).length;
     const equalTapaCount = Math.round((this.width * this.height - allInstructionCells.length) / 2);
     let iterations = 0;
 
@@ -429,13 +448,17 @@ export default class TapaSolver extends React.Component<{}, State> {
         allCanFormWhiteSquareCells,
         allCanFormHorizontalLineCells,
         allCanFormVerticalLineCells,
+        leftEmptyCells,
+        rightEmptyCells,
+        leftFilledCount,
+        rightFilledCount,
         areThereEmptyCells: true,
         checkSquares: true,
         checkWhiteSquares: true,
         checkLines: true,
-        checkSequence: true,
         isFourMeTapa,
         isNoSquareTapa,
+        isBalancedTapa,
         allSquareFilled,
         allSquareWhite,
         allHorizontalFilled,
@@ -480,7 +503,6 @@ export default class TapaSolver extends React.Component<{}, State> {
             checkSquares: isTapAlike || value,
             checkWhiteSquares: isTapAlike || !value,
             checkLines: isTapAlike || value,
-            checkSequence: isTapAlike || !value
           })) {
             return true;
           }
@@ -490,7 +512,6 @@ export default class TapaSolver extends React.Component<{}, State> {
             checkSquares: isTapAlike || value,
             checkWhiteSquares: isTapAlike || !value,
             checkLines: isTapAlike || value,
-            checkSequence: isTapAlike || !value
           })) {
             (value ? allFilledCells : allDotCells).pop();
 
@@ -589,6 +610,9 @@ export default class TapaSolver extends React.Component<{}, State> {
     await navigator.clipboard.writeText(
       JSON.stringify({
         variation: this.variation,
+        separatorX: this.variation === Variation.BALANCED
+          ? this.separatorX
+          : undefined,
         field: this.state.field!.map((row) => (
           row.map((cell) => ({
             type: cell.type,
@@ -605,6 +629,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     const text = await navigator.clipboard.readText();
     const {
       variation,
+      separatorX,
       field: parsedField
     } = JSON.parse(text);
     const field = this.setCoordinates(parsedField);
@@ -612,6 +637,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     this.variation = variation;
     this.width = field[0].length;
     this.height = field.length;
+    this.separatorX = separatorX || this.separatorX;
 
     this.setState({ field });
   };
@@ -619,10 +645,12 @@ export default class TapaSolver extends React.Component<{}, State> {
   setStartField() {
     const size = +this.sizeSelect!.value;
     const variation = this.variationSelect!.value as Tapa.Variation;
+    const separatorX = +this.separatorXSelect!.value;
 
     this.variation = variation;
     this.width = size;
     this.height = size;
+    this.separatorX = separatorX;
 
     this.setState({
       field: [...size].map((y) => (
@@ -788,13 +816,17 @@ export default class TapaSolver extends React.Component<{}, State> {
       allCanFormWhiteSquareCells,
       allCanFormHorizontalLineCells,
       allCanFormVerticalLineCells,
+      leftEmptyCells,
+      rightEmptyCells,
+      leftFilledCount,
+      rightFilledCount,
       areThereEmptyCells,
       checkSquares,
       checkWhiteSquares,
       checkLines,
-      checkSequence,
       isFourMeTapa,
       isNoSquareTapa,
+      isBalancedTapa,
       allSquareFilled,
       allSquareWhite,
       allHorizontalFilled,
@@ -852,17 +884,24 @@ export default class TapaSolver extends React.Component<{}, State> {
         return false;
       }
 
-      if (
-        checkSequence
-        && !this.checkSequence(allFilledCells, this.canBeFilled)
-      ) {
+      if (!this.checkSequence(allFilledCells, this.canBeFilled)) {
         return false;
       }
 
       return true;
     }
 
-    if (checkSequence && !this.checkSequence(allFilledCells, this.isFilledCell)) {
+    if (!this.checkSequence(allFilledCells, this.isFilledCell)) {
+      return false;
+    }
+
+    if (
+      isBalancedTapa
+      && (
+        leftEmptyCells.filter(this.isFilledCell).length + leftFilledCount
+        !== rightEmptyCells.filter(this.isFilledCell).length + rightFilledCount
+      )
+    ) {
       return false;
     }
 
@@ -942,7 +981,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       ? 1
       : cell.value[0];
     const maxValue = cell.value[0] === '?'
-      ? cell.instructionNeighbors.length - 1
+      ? cell.instructionNeighbors.length
       : cell.value[0];
 
     if (
@@ -1053,6 +1092,13 @@ export default class TapaSolver extends React.Component<{}, State> {
               </option>
             ))}
           </select>
+          <select defaultValue="2" ref={(select) => this.separatorXSelect = select}>
+            {[2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7].map((separatorX) => (
+              <option key={separatorX} value={separatorX}>
+                {separatorX}
+              </option>
+            ))}
+          </select>
           <button onClick={() => this.setStartField()}>
             Set initial parameters
           </button>
@@ -1067,6 +1113,8 @@ export default class TapaSolver extends React.Component<{}, State> {
       <div>
         <h3>{this.variation}</h3>
         <TapaGrid
+          variation={this.variation}
+          separatorX={this.separatorX}
           field={this.state.field}
           onFieldChange={this.onFieldChange}
         />
