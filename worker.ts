@@ -10,7 +10,26 @@ console.log('worker');
   ctx.addEventListener('fetch', async (e) => {
     const { url } = e.request;
 
-    if (url.endsWith('.less')) {
+    if (url.endsWith('.json')) {
+      e.respondWith((async () => {
+        const response = await fetch(url);
+        const json = await response.json();
+        const responseInit = {
+          headers: {
+            'Content-Type': 'text/javascript'
+          }
+        };
+
+        return new Response(
+          Object.keys(json)
+            .map((key) => (
+              `export const ${key} = ${JSON.stringify(json[key])};`
+            ))
+            .join('\n\n'),
+          responseInit
+        );
+      })());
+    } else if (url.endsWith('.less')) {
       e.respondWith(new Response(`
         const link = document.createElement('link');
 
