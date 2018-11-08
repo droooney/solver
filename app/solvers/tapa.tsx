@@ -20,6 +20,7 @@ interface State {
 }
 
 interface CheckFieldOptions {
+  allInstructionCells: InstructionCell[];
   allRelevantInstructionCells: InstructionCell[];
   allFilledCells: Cell[];
   allDotCells: Cell[];
@@ -38,6 +39,7 @@ interface CheckFieldOptions {
   isFourMeTapa: boolean;
   isNoSquareTapa: boolean;
   isBalancedTapa: boolean;
+  isTapARow: boolean;
   allSquareFilled(cells: Cell): boolean;
   allSquareWhite(cells: Cell): boolean;
   allHorizontalFilled(cells: Cell): boolean;
@@ -118,15 +120,16 @@ export default class TapaSolver extends React.Component<{}, State> {
     const isNoSquareTapa = this.variation === Variation.NO_SQUARE;
     const isTapAlike = this.variation === Variation.ALIKE;
     const isBalancedTapa = this.variation === Variation.BALANCED;
+    const isTapARow = this.variation === Variation.TAP_A_ROW;
     const field = this.state.field!;
-    const allInstructionCells = field
+    let allRelevantInstructionCells = field
       .reduce<InstructionCell[]>((cells, row) => [
         ...cells,
         ...row.filter(this.isInstructionCell)
       ], [])
       .filter((cell) => !cell.done);
     const instructionEmptyCellsMap = new Map(
-      allInstructionCells.map((cell) => [cell, []] as [InstructionCell, Cell[]])
+      allRelevantInstructionCells.map((cell) => [cell, []] as [InstructionCell, Cell[]])
     );
     const fillCell = (cell: Cell, value: boolean) => {
       if (this.isEmptyCell(cell)) {
@@ -147,7 +150,7 @@ export default class TapaSolver extends React.Component<{}, State> {
         });
       });
 
-      allInstructionCells.forEach((cell) => {
+      allRelevantInstructionCells.forEach((cell) => {
         cell.done = false;
       });
     };
@@ -158,7 +161,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     while (changed) {
       changed = false;
 
-      const valid = allInstructionCells.every((cell) => {
+      const valid = allRelevantInstructionCells.every((cell) => {
         const oldInstructionEmptyCells = instructionEmptyCellsMap.get(cell)!;
 
         if (!oldInstructionEmptyCells.length && !firstIteration) {
@@ -398,12 +401,13 @@ export default class TapaSolver extends React.Component<{}, State> {
 
       return verticalLineCells.every(this.isFilledCell);
     };
-    const allRelevantInstructionCells = field
-      .reduce<InstructionCell[]>((cells, row) => [
-        ...cells,
-        ...row.filter(this.isInstructionCell)
-      ], [])
-      .filter((cell) => !cell.done);
+    const allInstructionCells = field.reduce<InstructionCell[]>((cells, row) => [
+      ...cells,
+      ...row.filter(this.isInstructionCell)
+    ], []);
+
+    allRelevantInstructionCells = allRelevantInstructionCells.filter((cell) => !cell.done);
+
     const allEmptyCells = field
       .reduce((cells, row, y) => [
         ...cells,
@@ -441,6 +445,7 @@ export default class TapaSolver extends React.Component<{}, State> {
 
     const checkThisField = <K extends keyof CheckFieldOptions>(options: Pick<CheckFieldOptions, K>) => (
       this.checkField({
+        allInstructionCells,
         allRelevantInstructionCells,
         allFilledCells,
         allDotCells,
@@ -459,6 +464,7 @@ export default class TapaSolver extends React.Component<{}, State> {
         isFourMeTapa,
         isNoSquareTapa,
         isBalancedTapa,
+        isTapARow,
         allSquareFilled,
         allSquareWhite,
         allHorizontalFilled,
@@ -625,13 +631,17 @@ export default class TapaSolver extends React.Component<{}, State> {
     alert('Copied to clipboard!');
   };
 
-  importField = async () => {
+  importFieldFromClipboard = async () => {
     const text = await navigator.clipboard.readText();
-    const {
-      variation,
-      separatorX,
-      field: parsedField
-    } = JSON.parse(text);
+
+    this.importField(JSON.parse(text));
+  };
+
+  importFieldFromFile = async () => {
+    this.importField(await import(`/solver/app/fields/tapa/${prompt('Enter level name')}.json`));
+  };
+
+  importField({ variation, separatorX, field: parsedField }: { variation: Tapa.Variation; separatorX?: number; field: Cell[][]; }) {
     const field = this.setCoordinates(parsedField);
 
     this.variation = variation;
@@ -640,7 +650,7 @@ export default class TapaSolver extends React.Component<{}, State> {
     this.separatorX = separatorX || this.separatorX;
 
     this.setState({ field });
-  };
+  }
 
   setStartField() {
     const size = +this.sizeSelect!.value;
@@ -809,6 +819,7 @@ export default class TapaSolver extends React.Component<{}, State> {
 
   checkField(options: CheckFieldOptions): boolean {
     const {
+      allInstructionCells,
       allRelevantInstructionCells,
       allFilledCells,
       allDotCells,
@@ -827,6 +838,7 @@ export default class TapaSolver extends React.Component<{}, State> {
       isFourMeTapa,
       isNoSquareTapa,
       isBalancedTapa,
+      isTapARow,
       allSquareFilled,
       allSquareWhite,
       allHorizontalFilled,
@@ -900,6 +912,27 @@ export default class TapaSolver extends React.Component<{}, State> {
       && (
         leftEmptyCells.filter(this.isFilledCell).length + leftFilledCount
         !== rightEmptyCells.filter(this.isFilledCell).length + rightFilledCount
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      isTapARow
+      && (
+        [...this.height].some((y) => {
+          const areInstructionsCells = allInstructionCells.filter(({ y: cellY }) => cellY === y);
+
+          if (!areInstructionsCells.length) {
+            return false;
+          }
+
+          const sum = areInstructionsCells.reduce((sum, { instructionNeighbors }) => (
+            sum + instructionNeighbors.filter(this.isFilledCell).length
+          ), 0);
+
+          return sum !== this.state.field![y].filter(this.isFilledCell).length;
+        })
       )
     ) {
       return false;
@@ -1102,8 +1135,11 @@ export default class TapaSolver extends React.Component<{}, State> {
           <button onClick={() => this.setStartField()}>
             Set initial parameters
           </button>
-          <button onClick={this.importField}>
+          <button onClick={this.importFieldFromClipboard}>
             Import from clipboard
+          </button>
+          <button onClick={this.importFieldFromFile}>
+            Import from file
           </button>
         </div>
       );
@@ -1130,8 +1166,11 @@ export default class TapaSolver extends React.Component<{}, State> {
         <button onClick={this.exportField}>
           Export
         </button>
-        <button onClick={this.importField}>
+        <button onClick={this.importFieldFromClipboard}>
           Import from clipboard
+        </button>
+        <button onClick={this.importFieldFromFile}>
+          Import from file
         </button>
       </div>
     );

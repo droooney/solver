@@ -5,6 +5,7 @@ export enum Variation {
   NO_SQUARE = 'NO-SQUARE TAPA',
   ALIKE = 'TAP-ALIKE',
   BALANCED = 'BALANCED TAPA',
+  TAP_A_ROW = 'TAP_A_ROW'
 }
 
 export enum CellType {
